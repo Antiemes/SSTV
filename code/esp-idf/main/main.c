@@ -19,6 +19,7 @@
 #include <string.h>
 
 #define SERIAL_PIN (GPIO_NUM_14)
+#define PTT_PIN (GPIO_NUM_15)
 
 static const char *TAG = "foo";
 volatile uint8_t* rgb_buf;
@@ -139,6 +140,7 @@ static void timer_isr(void* arg)
     else
     {
       timer_pause(TIMER_GROUP_0, TIMER_0);
+      gpio_set_level(PTT_PIN, 1);
       freq=0;
       acc=0;
       sstv_s=0;
@@ -229,6 +231,7 @@ void serial_transmit(char* buf)
 
 void sendPic()
 {
+  gpio_set_level(PTT_PIN, 0);
   camera_fb_t *fb = NULL;
   fb = esp_camera_fb_get();
   rgb_buf = (uint8_t*)malloc(fb->width*fb->height*3*sizeof(uint8_t));
@@ -277,7 +280,7 @@ void app_main()
   //set as output mode
   io_conf.mode = GPIO_MODE_OUTPUT;
   //bit mask of the pins that you want to set,e.g.GPIO18/19
-  io_conf.pin_bit_mask = (1ULL << SERIAL_PIN);
+  io_conf.pin_bit_mask = (1ULL << SERIAL_PIN) | (1ULL << PTT_PIN);
   //disable pull-down mode
   io_conf.pull_down_en = 0;
   //disable pull-up mode
@@ -286,15 +289,16 @@ void app_main()
   gpio_config(&io_conf);
 
   gpio_set_level(SERIAL_PIN, 1);
+  gpio_set_level(PTT_PIN, 1);
   init_timer_serial(104);
   
+  vTaskDelay(1000/portTICK_PERIOD_MS);
+  serial_transmit("AT+DMOCONNECT\r\n");
   vTaskDelay(200/portTICK_PERIOD_MS);
-  serial_transmit("COMMAND 1\r\n");
+  serial_transmit("AT+DMOSETGROUP=0,434.5000,434.5000,0000,6,0000\r\n");
   vTaskDelay(200/portTICK_PERIOD_MS);
-  serial_transmit("COMMAND 2\r\n");
-  vTaskDelay(200/portTICK_PERIOD_MS);
-  serial_transmit("COMMAND 2\r\n");
-  vTaskDelay(200/portTICK_PERIOD_MS);
+  //serial_transmit("COMMAND 2\r\n");
+  //vTaskDelay(200/portTICK_PERIOD_MS);
 
   while(1)
   {
