@@ -3,7 +3,7 @@
 cmake_minimum_required(VERSION 3.5)
 
 set(EXTRA_COMPONENT_DIRS
-  $(abspath ../../components)
+  $(abspath components)
   )
 
 set(EXCLUDE_COMPONENTS
