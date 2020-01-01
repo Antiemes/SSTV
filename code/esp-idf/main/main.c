@@ -80,13 +80,15 @@ uint16_t lumToFreq(uint8_t lum)
 
 static intr_handle_t s_timer_handle;
 
-static volatile uint32_t acc=0;
-static volatile uint32_t freq=1000;
+volatile uint32_t acc=0;
+volatile uint32_t freq=1000;
 
 #define SINTABLE_LENGTH 256
 uint8_t sintable[SINTABLE_LENGTH];
 
-static volatile uint16_t sstv_s=0, sstv_y=0;
+volatile uint8_t sstv_status=0;
+volatile uint16_t sstv_s=0, sstv_y=0;
+volatile uint16_t vis_s=0;
 
 static void timer_isr(void* arg)
 {
@@ -97,55 +99,120 @@ static void timer_isr(void* arg)
   ledc_update_duty(LEDC_HIGH_SPEED_MODE, LEDC_CHANNEL_1);
   acc+=(freq << 18);
 
-  if (sstv_s<76)
+  if (sstv_status==1) //VIS code
   {
-    freq=1200;
-  }
-  else
-  {
-    uint16_t sstv_x=(sstv_s-76)%1156;
-    uint8_t sstv_c=(sstv_s-76)/1156;
-    if (sstv_x<9)
+    if (vis_s<4687)
     {
-      freq=1500;
+      freq=1900;
+    }
+    else if (vis_s<4844)
+    {
+      freq=1200;
+    }
+    else if (vis_s<9531)
+    {
+      freq=1900;
+    }
+    else if (vis_s<10000)
+    {
+      freq=1200;
+    }
+    else if (vis_s<10469)
+    {
+      freq=1300;
+    }
+    else if (vis_s<10937)
+    {
+      freq=1300;
+    }
+    else if (vis_s<11406)
+    {
+      freq=1300;
+    }
+    else if (vis_s<11875)
+    {
+      freq=1100;
+    }
+    else if (vis_s<12344)
+    {
+      freq=1300;
+    }
+    else if (vis_s<12812)
+    {
+      freq=1100;
+    }
+    else if (vis_s<13281)
+    {
+      freq=1300;
+    }
+    else if (vis_s<1750)
+    {
+      freq=1300;
+    }
+    else if (vis_s<14218)
+    {
+      freq=1200;
     }
     else
     {
-      uint16_t x=(sstv_x-9)*(rgb_width-1)/1155;
-      uint16_t y=sstv_y*(rgb_height-1)/255;
-      freq=lumToFreq(rgb_buf[y*rgb_width*3+x*3+sstv_c]);
+      sstv_status=2;
     }
-    //else if (sstv_x<391)
-    //{
-    //  freq=lumToFreq(0);
-    //}
-    //else if (sstv_x<774)
-    //{
-    //  freq=lumToFreq(127);
-    //}
-    //else
-    //{
-    //  freq=lumToFreq(255);
-    //}
+    vis_s++;
   }
+  else if (sstv_status==2) //SSTV image
+  {
+    if (sstv_s<76)
+    {
+      freq=1200;
+    }
+    else
+    {
+      uint16_t sstv_x=(sstv_s-76)%1156;
+      uint8_t sstv_c=(sstv_s-76)/1156;
+      if (sstv_x<9)
+      {
+        freq=1500;
+      }
+      else
+      {
+        uint16_t x=(sstv_x-9)*(rgb_width-1)/1155;
+        uint16_t y=sstv_y*(rgb_height-1)/255;
+        freq=lumToFreq(rgb_buf[y*rgb_width*3+x*3+sstv_c]);
+      }
+      //else if (sstv_x<391)
+      //{
+      //  freq=lumToFreq(0);
+      //}
+      //else if (sstv_x<774)
+      //{
+      //  freq=lumToFreq(127);
+      //}
+      //else
+      //{
+      //  freq=lumToFreq(255);
+      //}
+    }
 
-  sstv_s++;
-  if (sstv_s>3544)
-  {
-    sstv_s=0;
-    if (sstv_y<255)
+    sstv_s++;
+    if (sstv_s>3544)
     {
-      sstv_y++;
-    }
-    else
-    {
-      timer_pause(TIMER_GROUP_0, TIMER_0);
-      gpio_set_level(PTT_PIN, 1);
-      freq=0;
-      acc=0;
       sstv_s=0;
-      sstv_y=0;
-      free(rgb_buf);
+      if (sstv_y<255)
+      {
+        sstv_y++;
+      }
+      else
+      {
+        timer_pause(TIMER_GROUP_0, TIMER_0);
+        gpio_set_level(PTT_PIN, 1);
+        freq=0;
+        acc=0;
+        sstv_s=0;
+        sstv_y=0;
+        vis_s=0;
+        free(rgb_buf);
+        sstv_status=0;
+      }
     }
   }
 }
@@ -240,6 +307,8 @@ void sendPic()
   fmt2rgb888(fb->buf, fb->len, fb->format, rgb_buf);
   esp_camera_fb_return(fb);
 
+  vTaskDelay(1000/portTICK_PERIOD_MS);
+  sstv_status=1;
   timer_start(TIMER_GROUP_0, TIMER_0);
 }
 
