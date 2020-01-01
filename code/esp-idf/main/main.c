@@ -88,7 +88,7 @@ uint8_t sintable[SINTABLE_LENGTH];
 
 volatile uint8_t sstv_status=0;
 volatile uint16_t sstv_s=0, sstv_y=0;
-volatile uint16_t vis_s=0;
+volatile uint16_t vis_s=0, end_s=0;
 
 static void timer_isr(void* arg)
 {
@@ -99,57 +99,89 @@ static void timer_isr(void* arg)
   ledc_update_duty(LEDC_HIGH_SPEED_MODE, LEDC_CHANNEL_1);
   acc+=(freq << 18);
 
-  if (sstv_status==1) //VIS code
+  if (sstv_status==1) //Initial sequence and VIS code
   {
-    if (vis_s<4687)
+    if (vis_s<15625*0.1*1)
     {
       freq=1900;
     }
-    else if (vis_s<4844)
+    else if (vis_s<15625*0.1*2)
     {
-      freq=1200;
+      freq=1500;
     }
-    else if (vis_s<9531)
+    else if (vis_s<15625*0.1*3)
     {
       freq=1900;
     }
-    else if (vis_s<10000)
+    else if (vis_s<15625*0.1*4)
+    {
+      freq=1500;
+    }
+    else if (vis_s<15625*0.1*5)
+    {
+      freq=2300;
+    }
+    else if (vis_s<15625*0.1*6)
+    {
+      freq=1500;
+    }
+    else if (vis_s<15625*0.1*1)
+    {
+      freq=2300;
+    }
+    else if (vis_s<15625*0.1*8)
+    {
+      freq=1500;
+    }
+    else if (vis_s<15625*0.1*8+4687) //VIS code
+    {
+      freq=1900;
+    }
+    else if (vis_s<15625*0.1*8+4844)
     {
       freq=1200;
     }
-    else if (vis_s<10469)
+    else if (vis_s<15625*0.1*8+9531)
+    {
+      freq=1900;
+    }
+    else if (vis_s<15625*0.1*8+10000)
+    {
+      freq=1200;
+    }
+    else if (vis_s<15625*0.1*8+10469)
     {
       freq=1300;
     }
-    else if (vis_s<10937)
+    else if (vis_s<15625*0.1*8+10937)
     {
       freq=1300;
     }
-    else if (vis_s<11406)
+    else if (vis_s<15625*0.1*8+11406)
     {
       freq=1300;
     }
-    else if (vis_s<11875)
+    else if (vis_s<15625*0.1*8+11875)
     {
       freq=1100;
     }
-    else if (vis_s<12344)
+    else if (vis_s<15625*0.1*8+12344)
     {
       freq=1300;
     }
-    else if (vis_s<12812)
+    else if (vis_s<15625*0.1*8+12812)
     {
       freq=1100;
     }
-    else if (vis_s<13281)
+    else if (vis_s<15625*0.1*8+13281)
     {
       freq=1300;
     }
-    else if (vis_s<1750)
+    else if (vis_s<15625*0.1*8+1750)
     {
       freq=1300;
     }
-    else if (vis_s<14218)
+    else if (vis_s<15625*0.1*8+14218)
     {
       freq=1200;
     }
@@ -203,17 +235,52 @@ static void timer_isr(void* arg)
       }
       else
       {
-        timer_pause(TIMER_GROUP_0, TIMER_0);
-        gpio_set_level(PTT_PIN, 1);
-        freq=0;
-        acc=0;
-        sstv_s=0;
-        sstv_y=0;
-        vis_s=0;
-        free(rgb_buf);
-        sstv_status=0;
+        sstv_status=3;
       }
     }
+  }
+  else if (sstv_status==3) //End sequence
+  {
+    if (end_s<4688)
+    {
+      freq=1500;
+    }
+    else if (end_s<6250)
+    {
+      freq=1900;
+    }
+    else if (end_s<7813)
+    {
+      freq=1500;
+    }
+    else if (end_s<9375)
+    {
+      freq=1900;
+    }
+    else if (end_s<10938)
+    {
+      freq=1500;
+    }
+    else
+    {
+      sstv_status=4;
+    }
+  }
+  else if (sstv_status==4) //CW ID
+  {
+    sstv_status=5;
+  }
+  else if (sstv_status==5) //END
+  {
+    timer_pause(TIMER_GROUP_0, TIMER_0);
+    gpio_set_level(PTT_PIN, 1);
+    freq=0;
+    acc=0;
+    sstv_s=0;
+    sstv_y=0;
+    vis_s=0;
+    end_s=0;
+    free(rgb_buf);
   }
 }
 
