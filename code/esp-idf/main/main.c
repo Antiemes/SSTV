@@ -97,7 +97,9 @@ static void timer_isr(void* arg)
 
   ledc_set_duty(LEDC_HIGH_SPEED_MODE, LEDC_CHANNEL_1, sintable[acc>>24]);
   ledc_update_duty(LEDC_HIGH_SPEED_MODE, LEDC_CHANNEL_1);
-  acc+=(freq << 18);
+  
+  //acc+=(freq << 18);
+  acc+=(freq*274878);
 
   if (sstv_status==1) //Initial sequence and VIS code
   {
@@ -125,7 +127,7 @@ static void timer_isr(void* arg)
     {
       freq=1500;
     }
-    else if (vis_s<15625*0.1*1)
+    else if (vis_s<15625*0.1*7)
     {
       freq=2300;
     }
@@ -177,7 +179,7 @@ static void timer_isr(void* arg)
     {
       freq=1300;
     }
-    else if (vis_s<15625*0.1*8+1750)
+    else if (vis_s<15625*0.1*8+13750)
     {
       freq=1300;
     }
@@ -265,6 +267,7 @@ static void timer_isr(void* arg)
     {
       sstv_status=4;
     }
+    end_s++;
   }
   else if (sstv_status==4) //CW ID
   {
